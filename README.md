@@ -5,4 +5,5 @@
 Author - Mariam Khundzakishvili
 
 Project code is plasced in index.html
+
 Project dosn't require intallation.
