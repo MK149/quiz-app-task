@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="quizApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="//netdna.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+    <title>Quiz App</title>
+    <style>
+        body {
+            margin: 50px;
+        }
+
+        .inline {
+            display: flex;
+            justify-content: flex-start;
+        }
+    </style>
+</head>
+<body>
+    <div ng-controller="quizCtrl" class="container">
+        <div ng-show="state === 'start'">
+            <form>
+                <div class="form-group">
+                    <div class="row">
+                        <dic class="col-sm-2">
+                            <label for="category">
+                                <h4>Category</h4>
+                            </label>
+                        </dic>
+                        <div class="col-sm-10">
+                            <select name="category" class="form-control" ng-model="selectedCategoryId">
+                                <option value="" selected>All</option>
+                                <option ng-repeat="category in categories" ng-value="category.id">{{category.name}}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="row">
+                        <div class="col-sm-2">
+                            <label for="difficulty">
+                                <h4>Dificulty</h4>
+                            </label>
+                        </div>
+                        <div class="col-sm-10">
+                            <select name="difficulty" class="form-control" ng-model="selectedDifficultyLevel">
+                                <option value="" selected>All</option>
+                                <option ng-repeat="level in difficultyLevels" ng-value="level.value">{{level.text}}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary btn-block" ng-click="start()">Start Quiz</button>
+            </form>
+        </div>
+
+        <div ng-show="state === 'quiz'">
+            <div ng-repeat="question in questions">
+                <form>
+                    <div class="panel panel-default">
+                        <div class="panel-heading">
+                            <div class="inline">
+                                <div>{{$index + 1}}.</div>
+                                <div ng-bind-html="question.question"></div>
+                            </div>
+                        </div>
+                        <div class="panel-body">
+                            <div class="radio" ng-repeat="answer in question.answers">
+                                <label><input type="radio" name="optradio" ng-model="question.selectedAnswer"
+                                        ng-value="answer">
+                                    <div ng-bind-html="answer"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <button type="button" class="btn btn-primary btn-block" ng-click="submit()">Submit</button>
+        </div>
+        <div ng-show="state === 'result'">
+            <h3>Result: {{score}}/{{questions.length}}</h3>
+            <button type="button" class="btn btn-primary" ng-click="tryAgain()">Try Again</button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.1/angular.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-sanitize/1.8.1/angular-sanitize.min.js"></script>
+    <script>
+        var app = angular.module('quizApp', ['ngSanitize']);
+        app.controller('quizCtrl', function ($scope, $http) {
+            $scope.categories = [];
+            $scope.difficultyLevels = [
+                {
+                    text: 'Easy',
+                    value: 'easy'
+                },
+                {
+                    text: 'Medium',
+                    value: 'medium'
+                },
+                {
+                    text: 'Hard',
+                    value: 'hard'
+                }
+            ];
+            $scope.questions = [];
+
+            $scope.questionAmount = 10;
+            $scope.selectedDifficultyLevel = null;
+            $scope.selectedCategoryId = null;
+            $scope.score = 0;
+            $scope.state = 'start';
+
+
+            $http.get('https://opentdb.com/api_category.php').then((response) => {
+                $scope.categories = response.data.trivia_categories;
+            });
+
+            $scope.start = function () {
+                if ($scope.selectedDifficultyLevel === null || $scope.selectedCategoryId === null) {
+                    fetchQuestions();
+                } else {
+                    getQuestionsAmount();
+                }
+                $scope.state = 'quiz';
+            }
+
+            $scope.submit = function () {
+                let selectedAnswerAmount = $scope.questions.filter((question) => question.selectedAnswer).length;
+                if (selectedAnswerAmount !== $scope.questionAmount) {
+                    alert("Please, answer all the questions.");
+                } else {
+                    $scope.questions.forEach(question => {
+                        if (question.correct_answer === question.selectedAnswer) {
+                            $scope.score++;
+                        }
+                    });
+                    $scope.state = 'result';
+                }
+            }
+
+            $scope.tryAgain = function () {
+                $scope.selectedDifficultyLevel = null;
+                $scope.selectedCategoryId = null;
+                $scope.questionAmount = 10;
+                $scope.score = 0;
+                $scope.state = 'start';
+            }
+
+            function getQuestionsAmount() {
+                $http.get('https://opentdb.com/api_count.php', {
+                    params: {
+                        category: $scope.selectedCategoryId
+                    }
+                }).then((response) => {
+                    $scope.categoryQuestionCount = [
+                        {
+                            count: response.data.category_question_count.total_easy_question_count,
+                            value: 'easy'
+                        },
+                        {
+                            count: response.data.category_question_count.total_medium_question_count,
+                            value: 'medium'
+                        },
+                        {
+                            count: response.data.category_question_count.total_hard_question_count,
+                            value: 'hard'
+                        }
+                    ];
+                    $scope.categoryQuestionCount.forEach((category) => {
+                        if (category.value === $scope.selectedDifficultyLevel && category.count < $scope.questionAmount) {
+                            $scope.questionAmount = category.count;
+                        }
+                    });
+                    fetchQuestions();
+                });
+            }
+
+            function fetchQuestions() {
+                $http.get('https://opentdb.com/api.php', {
+                    params: {
+                        amount: $scope.questionAmount,
+                        category: $scope.selectedCategoryId,
+                        difficulty: $scope.selectedDifficultyLevel
+                    }
+                }).then((response) => {
+                    $scope.questions = response.data.results;
+                    randomizeAnswers();
+                });
+            }
+
+            function randomizeAnswers() {
+                $scope.questions.forEach(question => {
+                    question.answers = question.incorrect_answers;
+                    question.answers.splice(Math.floor(Math.random() * (question.answers.length + 1)), 0, question.correct_answer);
+                });
+            }
+
+        });
+    </script>
+</body>
+</html>
