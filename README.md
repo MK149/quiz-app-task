@@ -6,4 +6,4 @@ Author - Mariam Khundzakishvili
 
 Project code is placed in index.html
 
-Project dosn't require intallation.
+Project doesn't require installation.
